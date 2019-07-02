@@ -56,6 +56,7 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
+import io.swagger.annotations.ApiParam;
 
 @Path("/namespaces")
 @Produces(MediaType.APPLICATION_JSON)
@@ -485,8 +486,14 @@ public class Namespaces extends NamespacesBase {
     @ApiResponses(value = { @ApiResponse(code = 403, message = "Don't have admin permission"),
             @ApiResponse(code = 404, message = "Namespace does not exist"),
             @ApiResponse(code = 409, message = "Concurrent modification"),
-            @ApiResponse(code = 400, message = "Invalid persistence policies") })
-    public void setPersistence(@PathParam("tenant") String tenant, @PathParam("namespace") String namespace,
+            @ApiResponse(code = 400, message = "Invalid persistence policies"),
+            @ApiResponse(code = 412, message = "Retention Quota must exceed backlog quota")
+    })
+    public void setPersistence(
+            @ApiParam(value = "Specify the tenant")
+            @PathParam("tenant") String tenant,
+            @ApiParam(value = "Specify the namespace")
+            @PathParam("namespace") String namespace,
             PersistencePolicies persistence) {
         validateNamespaceName(tenant, namespace);
         internalSetPersistence(persistence);
@@ -497,34 +504,50 @@ public class Namespaces extends NamespacesBase {
     @ApiOperation(value = "Set the bookie-affinity-group to namespace-persistent policy.")
     @ApiResponses(value = { @ApiResponse(code = 403, message = "Don't have admin permission"),
             @ApiResponse(code = 404, message = "Namespace does not exist"),
-            @ApiResponse(code = 409, message = "Concurrent modification") })
-    public void setBookieAffinityGroup(@PathParam("tenant") String tenant, @PathParam("namespace") String namespace,
+            @ApiResponse(code = 409, message = "Concurrent modification"),
+            @ApiResponse(code = 412, message = "Retention Quota must exceed backlog quota")
+    })
+    public void setBookieAffinityGroup(
+            @ApiParam(value = "Specify the tenant")
+            @PathParam("tenant") String tenant,
+            @ApiParam(value = "Specify the namespace")
+            @PathParam("namespace") String namespace,
             BookieAffinityGroupData bookieAffinityGroup) {
         validateNamespaceName(tenant, namespace);
         internalSetBookieAffinityGroup(bookieAffinityGroup);
     }
 
     @GET
-    @Path("/{property}/{namespace}/persistence/bookieAffinity")
+    @Path("/{tenant}/{namespace}/persistence/bookieAffinity")
     @ApiOperation(value = "Get the bookie-affinity-group from namespace-local policy.")
     @ApiResponses(value = { @ApiResponse(code = 403, message = "Don't have admin permission"),
             @ApiResponse(code = 404, message = "Namespace does not exist"),
-            @ApiResponse(code = 409, message = "Concurrent modification") })
-    public BookieAffinityGroupData getBookieAffinityGroup(@PathParam("property") String property,
+            @ApiResponse(code = 409, message = "Concurrent modification"),
+            @ApiResponse(code = 412, message = "Retention Quota must exceed backlog quota")
+    })
+    public BookieAffinityGroupData getBookieAffinityGroup(
+            @ApiParam(value = "Specify the tenant")
+            @PathParam("tenant") String tenant,
+            @ApiParam(value = "Specify the namespace")
             @PathParam("namespace") String namespace) {
-        validateNamespaceName(property, namespace);
+        validateNamespaceName(tenant, namespace);
         return internalGetBookieAffinityGroup();
     }
 
     @DELETE
-    @Path("/{property}/{namespace}/persistence/bookieAffinity")
+    @Path("/{tenant}/{namespace}/persistence/bookieAffinity")
     @ApiOperation(value = "Delete the bookie-affinity-group from namespace-local policy.")
     @ApiResponses(value = { @ApiResponse(code = 403, message = "Don't have admin permission"),
             @ApiResponse(code = 404, message = "Namespace does not exist"),
-            @ApiResponse(code = 409, message = "Concurrent modification") })
-    public void deleteBookieAffinityGroup(@PathParam("property") String property,
+            @ApiResponse(code = 409, message = "Concurrent modification"),
+            @ApiResponse(code = 412, message = "Retention Quota must exceed backlog quota")
+    })
+    public void deleteBookieAffinityGroup(
+            @ApiParam(value = "Specify the tenant")
+            @PathParam("tenant") String tenant,
+            @ApiParam(value = "Specify the namespace")
             @PathParam("namespace") String namespace) {
-        validateNamespaceName(property, namespace);
+        validateNamespaceName(tenant, namespace);
         internalDeleteBookieAffinityGroup();
     }
 
@@ -533,8 +556,13 @@ public class Namespaces extends NamespacesBase {
     @ApiOperation(value = "Get the persistence configuration for a namespace.")
     @ApiResponses(value = { @ApiResponse(code = 403, message = "Don't have admin permission"),
             @ApiResponse(code = 404, message = "Namespace does not exist"),
-            @ApiResponse(code = 409, message = "Concurrent modification") })
-    public PersistencePolicies getPersistence(@PathParam("tenant") String tenant,
+            @ApiResponse(code = 409, message = "Concurrent modification"),
+            @ApiResponse(code = 412, message = "Retention Quota must exceed backlog quota")
+    })
+    public PersistencePolicies getPersistence(
+            @ApiParam(value = "Specify the tenant")
+            @PathParam("tenant") String tenant,
+            @ApiParam(value = "Specify the namespace")
             @PathParam("namespace") String namespace) {
         validateNamespaceName(tenant, namespace);
         return internalGetPersistence();
@@ -544,8 +572,14 @@ public class Namespaces extends NamespacesBase {
     @Path("/{tenant}/{namespace}/clearBacklog")
     @ApiOperation(value = "Clear backlog for all topics on a namespace.")
     @ApiResponses(value = { @ApiResponse(code = 403, message = "Don't have admin permission"),
-            @ApiResponse(code = 404, message = "Namespace does not exist") })
-    public void clearNamespaceBacklog(@PathParam("tenant") String tenant, @PathParam("namespace") String namespace,
+            @ApiResponse(code = 404, message = "Namespace does not exist"),
+            @ApiResponse(code = 412, message = "Retention Quota must exceed backlog quota")
+    })
+    public void clearNamespaceBacklog(
+            @ApiParam(value = "Specify the tenant")
+            @PathParam("tenant") String tenant,
+            @ApiParam(value = "Specify the namespace")
+            @PathParam("namespace") String namespace,
             @QueryParam("authoritative") @DefaultValue("false") boolean authoritative) {
         validateNamespaceName(tenant, namespace);
         internalClearNamespaceBacklog(authoritative);
@@ -555,9 +589,16 @@ public class Namespaces extends NamespacesBase {
     @Path("/{tenant}/{namespace}/{bundle}/clearBacklog")
     @ApiOperation(value = "Clear backlog for all topics on a namespace bundle.")
     @ApiResponses(value = { @ApiResponse(code = 403, message = "Don't have admin permission"),
-            @ApiResponse(code = 404, message = "Namespace does not exist") })
-    public void clearNamespaceBundleBacklog(@PathParam("tenant") String tenant,
-            @PathParam("namespace") String namespace, @PathParam("bundle") String bundleRange,
+            @ApiResponse(code = 404, message = "Namespace does not exist"),
+            @ApiResponse(code = 412, message = "Retention Quota must exceed backlog quota")
+    })
+    public void clearNamespaceBundleBacklog(
+            @ApiParam(value = "Specify the tenant")
+            @PathParam("tenant") String tenant,
+            @ApiParam(value = "Specify the namespace")
+            @PathParam("namespace") String namespace,
+            @ApiParam(value = "{start-boundary}_{end-boundary}")
+            @PathParam("bundle") String bundleRange,
             @QueryParam("authoritative") @DefaultValue("false") boolean authoritative) {
         validateNamespaceName(tenant, namespace);
         internalClearNamespaceBundleBacklog(bundleRange, authoritative);
@@ -567,9 +608,16 @@ public class Namespaces extends NamespacesBase {
     @Path("/{tenant}/{namespace}/clearBacklog/{subscription}")
     @ApiOperation(value = "Clear backlog for a given subscription on all topics on a namespace.")
     @ApiResponses(value = { @ApiResponse(code = 403, message = "Don't have admin permission"),
-            @ApiResponse(code = 404, message = "Namespace does not exist") })
-    public void clearNamespaceBacklogForSubscription(@PathParam("tenant") String tenant,
-            @PathParam("namespace") String namespace, @PathParam("subscription") String subscription,
+            @ApiResponse(code = 404, message = "Namespace does not exist"),
+            @ApiResponse(code = 412, message = "Retention Quota must exceed backlog quota")
+    })
+    public void clearNamespaceBacklogForSubscription(
+            @ApiParam(value = "Specify the tenant")
+            @PathParam("tenant") String tenant,
+            @ApiParam(value = "Specify the namespace")
+            @PathParam("namespace") String namespace,
+            @ApiParam(value = "subscription name")
+            @PathParam("subscription") String subscription,
             @QueryParam("authoritative") @DefaultValue("false") boolean authoritative) {
         validateNamespaceName(tenant, namespace);
         internalClearNamespaceBacklogForSubscription(subscription, authoritative);
@@ -579,9 +627,17 @@ public class Namespaces extends NamespacesBase {
     @Path("/{tenant}/{namespace}/{bundle}/clearBacklog/{subscription}")
     @ApiOperation(value = "Clear backlog for a given subscription on all topics on a namespace bundle.")
     @ApiResponses(value = { @ApiResponse(code = 403, message = "Don't have admin permission"),
-            @ApiResponse(code = 404, message = "Namespace does not exist") })
-    public void clearNamespaceBundleBacklogForSubscription(@PathParam("tenant") String tenant,
-            @PathParam("namespace") String namespace, @PathParam("subscription") String subscription,
+            @ApiResponse(code = 404, message = "Namespace does not exist"),
+            @ApiResponse(code = 412, message = "Retention Quota must exceed backlog quota")
+    })
+    public void clearNamespaceBundleBacklogForSubscription(
+            @ApiParam(value = "Specify the tenant")
+            @PathParam("tenant") String tenant,
+            @ApiParam(value = "Specify the namespace")
+            @PathParam("namespace") String namespace,
+            @ApiParam(value = "subscription name")
+            @PathParam("subscription") String subscription,
+            @ApiParam(value = "{start-boundary}_{end-boundary}")
             @PathParam("bundle") String bundleRange,
             @QueryParam("authoritative") @DefaultValue("false") boolean authoritative) {
         validateNamespaceName(tenant, namespace);
@@ -592,9 +648,16 @@ public class Namespaces extends NamespacesBase {
     @Path("/{tenant}/{namespace}/unsubscribe/{subscription}")
     @ApiOperation(value = "Unsubscribes the given subscription on all topics on a namespace.")
     @ApiResponses(value = { @ApiResponse(code = 403, message = "Don't have admin permission"),
-            @ApiResponse(code = 404, message = "Namespace does not exist") })
-    public void unsubscribeNamespace(@PathParam("tenant") String tenant, @PathParam("cluster") String cluster,
-            @PathParam("namespace") String namespace, @PathParam("subscription") String subscription,
+            @ApiResponse(code = 404, message = "Namespace does not exist"),
+            @ApiResponse(code = 412, message = "Retention Quota must exceed backlog quota")
+    })
+    public void unsubscribeNamespace(
+            @ApiParam(value = "Specify the tenant")
+            @PathParam("tenant") String tenant,
+            @ApiParam(value = "Specify the namespace")
+            @PathParam("namespace") String namespace,
+            @ApiParam(value = "subscription name")
+            @PathParam("subscription") String subscription,
             @QueryParam("authoritative") @DefaultValue("false") boolean authoritative) {
         validateNamespaceName(tenant, namespace);
         internalUnsubscribeNamespace(subscription, authoritative);
@@ -604,9 +667,17 @@ public class Namespaces extends NamespacesBase {
     @Path("/{tenant}/{namespace}/{bundle}/unsubscribe/{subscription}")
     @ApiOperation(value = "Unsubscribes the given subscription on all topics on a namespace bundle.")
     @ApiResponses(value = { @ApiResponse(code = 403, message = "Don't have admin permission"),
-            @ApiResponse(code = 404, message = "Namespace does not exist") })
-    public void unsubscribeNamespaceBundle(@PathParam("tenant") String tenant,
-            @PathParam("namespace") String namespace, @PathParam("subscription") String subscription,
+            @ApiResponse(code = 404, message = "Namespace does not exist"),
+            @ApiResponse(code = 412, message = "Retention Quota must exceed backlog quota")
+    })
+    public void unsubscribeNamespaceBundle(
+            @ApiParam(value = "Specify the tenant")
+            @PathParam("tenant") String tenant,
+            @ApiParam(value = "Specify the namespace")
+            @PathParam("namespace") String namespace,
+            @ApiParam(value = "subscription name")
+            @PathParam("subscription") String subscription,
+            @ApiParam(value = "{start-boundary}_{end-boundary}")
             @PathParam("bundle") String bundleRange,
             @QueryParam("authoritative") @DefaultValue("false") boolean authoritative) {
         validateNamespaceName(tenant, namespace);
@@ -618,8 +689,13 @@ public class Namespaces extends NamespacesBase {
     @ApiOperation(value = " Set a subscription auth mode for all the topics on a namespace.")
     @ApiResponses(value = { @ApiResponse(code = 403, message = "Don't have admin permission"),
             @ApiResponse(code = 404, message = "Namespace does not exist"),
-            @ApiResponse(code = 409, message = "Concurrent modification") })
-    public void setSubscriptionAuthMode(@PathParam("tenant") String tenant,
+            @ApiResponse(code = 409, message = "Concurrent modification"),
+            @ApiResponse(code = 412, message = "Retention Quota must exceed backlog quota")
+    })
+    public void setSubscriptionAuthMode(
+            @ApiParam(value = "Specify the tenant")
+            @PathParam("tenant") String tenant,
+            @ApiParam(value = "Specify the namespace")
             @PathParam("namespace") String namespace, SubscriptionAuthMode subscriptionAuthMode) {
         validateNamespaceName(tenant, namespace);
         internalSetSubscriptionAuthMode(subscriptionAuthMode);
