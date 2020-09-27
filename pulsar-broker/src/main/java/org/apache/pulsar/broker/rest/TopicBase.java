@@ -29,6 +29,7 @@ import org.apache.pulsar.broker.admin.impl.PersistentTopicsBase;
 import org.apache.pulsar.broker.lookup.LookupResult;
 import org.apache.pulsar.broker.namespace.LookupOptions;
 import org.apache.pulsar.broker.service.BrokerServiceException;
+import org.apache.pulsar.broker.service.Subscription;
 import org.apache.pulsar.broker.web.RestException;
 import org.apache.pulsar.client.api.CompressionType;
 import org.apache.pulsar.client.api.Message;
@@ -53,13 +54,12 @@ import org.apache.pulsar.client.impl.schema.StringSchema;
 import org.apache.pulsar.client.impl.schema.TimeSchema;
 import org.apache.pulsar.client.impl.schema.TimestampSchema;
 import org.apache.pulsar.client.impl.schema.generic.GenericSchemaImpl;
+import org.apache.pulsar.common.api.proto.PulsarApi.CommandSubscribe.SubType;
 import org.apache.pulsar.common.api.proto.PulsarApi;
 import org.apache.pulsar.common.compression.CompressionCodecProvider;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.partition.PartitionedTopicMetadata;
-import org.apache.pulsar.common.policies.data.ProduceMessageRequest;
-import org.apache.pulsar.common.policies.data.ProduceMessageResponse;
-import org.apache.pulsar.common.policies.data.RestProduceMessage;
+import org.apache.pulsar.common.policies.data.*;
 import org.apache.pulsar.common.protocol.Commands;
 import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.util.FutureUtil;
@@ -73,11 +73,7 @@ import javax.ws.rs.core.Response.Status;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -87,10 +83,11 @@ public class TopicBase extends PersistentTopicsBase {
 
     private ConcurrentOpenHashMap<String, ConcurrentOpenHashSet<Integer>> owningTopics = new ConcurrentOpenHashMap<>();
 
+    private Map<String, Set<String>> subscriptions = new HashMap<>();
+
     private static String DEFAULT_PRODUCER_NAME = "RestProducer";
 
-    protected  void publishMessages(AsyncResponse asyncResponse, ProduceMessageRequest request,
-                                           boolean authoritative) {
+    protected  void publishMessages(AsyncResponse asyncResponse, ProduceMessageRequest request, boolean authoritative) {
         String topic = topicName.getPartitionedTopicName();
         if (owningTopics.containsKey(topic)) {
             // if broker owns some of the partitions then proceed to publish message
@@ -115,7 +112,7 @@ public class TopicBase extends PersistentTopicsBase {
         }
     }
 
-    private CompletableFuture<PositionImpl> publishSingleMessageToPartition(String topic, Message message, String producerName) {
+    private CompletableFuture<PositionImpl> publishSingleMessageToSinglePartition(String topic, Message message, String producerName) {
         CompletableFuture<PositionImpl> publishResult = new CompletableFuture<>();
         pulsar().getBrokerService().getTopic(topic, false).thenAccept(t -> {
             if (!t.isPresent()) {
@@ -140,7 +137,7 @@ public class TopicBase extends PersistentTopicsBase {
                 ProduceMessageResponse.ProduceMessageResult produceMessageResult = new ProduceMessageResponse.ProduceMessageResult();
                 produceMessageResult.setPartition(partition);
                 produceMessageResults.add(produceMessageResult);
-                publishSingleMessageToPartition(topicName.getPartition(partition).getLocalName(), messages.get(index),
+                publishSingleMessageToSinglePartition(topicName.getPartition(partition).getLocalName(), messages.get(index),
                         producerName);
             }
             FutureUtil.waitForAll(publishResults);
@@ -164,7 +161,7 @@ public class TopicBase extends PersistentTopicsBase {
                 ProduceMessageResponse.ProduceMessageResult produceMessageResult = new ProduceMessageResponse.ProduceMessageResult();
                 produceMessageResult.setPartition(owningPartitions.get(index % (int)partitionIndexes.size()));
                 produceMessageResults.add(produceMessageResult);
-                publishResults.add(publishSingleMessageToPartition(topicName.getPartition(owningPartitions.get(index % (int)partitionIndexes.size())).getLocalName(),
+                publishResults.add(publishSingleMessageToSinglePartition(topicName.getPartition(owningPartitions.get(index % (int)partitionIndexes.size())).getLocalName(),
                     messages.get(index), producerName));
             }
             FutureUtil.waitForAll(publishResults);
@@ -207,8 +204,7 @@ public class TopicBase extends PersistentTopicsBase {
         produceMessageResult.setError(e.getMessage());
     }
 
-    // Look up topic owner for given topic.
-    // Return if asyncResponse has been completed.
+    // Look up topic owner for given topic. Return true if asyncResponse has been completed.
     private boolean findOwnerBrokerForTopic(boolean authoritative, AsyncResponse asyncResponse) {
         PartitionedTopicMetadata metadata = internalGetPartitionedMetadata(authoritative, false);
         List<String> redirectAddresses = Collections.synchronizedList(new ArrayList<>());
@@ -431,4 +427,87 @@ public class TopicBase extends PersistentTopicsBase {
             }
         }
     }
+
+
+
+
+
+    // Consume messages
+    protected void createConsumer(AsyncResponse asyncResponse, CreateConsumerRequest request,
+                                  boolean authoritative, String subscriptionName) {
+        String topic = topicName.getPartitionedTopicName();
+        if (owningTopics.containsKey(topic)) {
+            internalCreateConsumer(asyncResponse, request, owningTopics.get(topic), subscriptionName);
+        } else {
+            if (!findOwnerBrokerForTopic(authoritative, asyncResponse)) {
+                internalCreateConsumer(asyncResponse, request, owningTopics.get(topic), subscriptionName);
+            }
+        }
+    }
+
+    private void internalCreateConsumer(AsyncResponse asyncResponse, CreateConsumerRequest request,
+                                        ConcurrentOpenHashSet<Integer> partitionIndexes, String subscriptionName) {
+        List<CreateConsumerResponse.CreateConsumerResult> createConsumerResults = new ArrayList<>();
+
+        for (int partitionIndex : partitionIndexes.values()) {
+            String partitionedTopicName = topicName.getPartition(partitionIndex).toString();
+            // Subscribe for each partition this broker owns
+            pulsar().getBrokerService().getTopic(partitionedTopicName, false).thenAccept(t -> {
+                if (!t.isPresent()) {
+                    // process error, topic not owned by the broker anymore
+                    if (log.isDebugEnabled()) {
+                        log.warn("Trying to add rest consumer to subscription: {} on topic {} but topic is not found",
+                                subscriptionName, partitionedTopicName);
+                    }
+                    createConsumerResults.add(new CreateConsumerResponse.CreateConsumerResult("", -1));
+                } else {
+                    Subscription subscription = t.get().getSubscription(subscriptionName);
+                    SubType subType = subscription.getType();
+                    String key = partitionedTopicName + "_" + subscriptionName;
+                    if (subType == SubType.Exclusive) {
+                        synchronized (this) {
+                            if (!subscriptions.containsKey(key)) {
+                                // Succeed
+                                String consumerId = subscriptionName + UUID.randomUUID();
+                                subscriptions.computeIfAbsent(key, k-> new HashSet<>()).add(consumerId);
+                                createConsumerResults.add(new CreateConsumerResponse.CreateConsumerResult(consumerId, partitionIndex));
+                            } else {
+                                // Other consumer already connect for exclusive subscription.
+                                createConsumerResults.add(new CreateConsumerResponse.CreateConsumerResult("", -1));
+                            }
+                        }
+                    } else if (subType == SubType.Shared) {
+                        subscriptions.computeIfAbsent(key, k-> new HashSet<>()).add(subscriptionName + UUID.randomUUID());
+                        createConsumerResults.add(new CreateConsumerResponse.CreateConsumerResult(subscriptionName + UUID.randomUUID(), partitionIndex));
+                    } else {
+                        if (log.isDebugEnabled()) {
+                            log.warn("Trying to add rest consumer to subscription: {} on topic {} with subscription type {} is not supported",
+                                    subscriptionName, partitionedTopicName, subscription.getTypeString());
+                        }
+                        createConsumerResults.add(new CreateConsumerResponse.CreateConsumerResult("", -1));
+                    }
+                }
+            });
+        }
+        asyncResponse.resume(new CreateConsumerResponse(createConsumerResults));
+    }
+
+    private CompletableFuture<Void> internalCreateConsumerOnSinglePartition() {
+        return null;
+    }
+
+    private synchronized void internalReadMessage() {
+//        if (subscription == null) {
+//            // If subscription not found subscription to this partition will be marked fail.
+//
+//        }
+//        if (subscription instanceof PersistentSubscription) {
+//            // Persistent subscription.
+//            ((PersistentSubscription) subscription).getCursor();
+//        } else {
+//            // Non-persistent subscription.
+//            ((NonPersistentSubscription) subscription).getDispatcher();
+//        }
+    }
+
 }

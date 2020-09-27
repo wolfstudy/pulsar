@@ -23,11 +23,13 @@ import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
+import org.apache.pulsar.common.policies.data.CreateConsumerRequest;
 import org.apache.pulsar.common.policies.data.ProduceMessageRequest;
 
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.Encoded;
+import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -64,7 +66,7 @@ public class Topics extends TopicBase {
     }
 
     @POST
-    @Path("/{tenant}/{namespace}/{topic}/partitions/(partition)")
+    @Path("/{tenant}/{namespace}/{topic}/partitions/{partition}")
     @ApiOperation(value = "Produce message to a topic.", response = String.class, responseContainer = "List")
     @ApiResponses(value = {
             @ApiResponse(code = 404, message = "tenant/namespace/topic doesn't exit"),
@@ -76,13 +78,35 @@ public class Topics extends TopicBase {
                                         @ApiParam(value = "Specify the namespace", required = true)
                                         @PathParam("namespace") String namespace,
                                         @ApiParam(value = "Specify topic name", required = true)
-                                        @PathParam("partition") @Encoded String encodedTopic,
+                                        @PathParam("topic") @Encoded String encodedTopic,
                                         @ApiParam(value = "Specify topic partition", required = true)
                                         @PathParam("partition") int partition,
                                         @QueryParam("authoritative") @DefaultValue("false") boolean authoritative,
                                         ProduceMessageRequest produceMessageRequest) {
         validateTopicName(tenant, namespace, encodedTopic);
         publishMessagesToPartition(asyncResponse, produceMessageRequest, authoritative, partition);
+    }
+
+    @POST
+    @Path("/{tenant}/{namespace}/{topic}/subscription/{subscription}")
+    @ApiOperation(value = "Produce message to a topic.", response = String.class, responseContainer = "List")
+    @ApiResponses(value = {
+            @ApiResponse(code = 404, message = "tenant/namespace/topic doesn't exit"),
+            @ApiResponse(code = 412, message = "Namespace name is not valid"),
+            @ApiResponse(code = 500, message = "Internal server error") })
+    public void createConsumer(@Suspended final AsyncResponse asyncResponse,
+                               @ApiParam(value = "Specify the tenant", required = true)
+                               @PathParam("tenant") String tenant,
+                               @ApiParam(value = "Specify the namespace", required = true)
+                               @PathParam("namespace") String namespace,
+                               @ApiParam(value = "Specify topic name", required = true)
+                               @PathParam("topic") @Encoded String encodedTopic,
+                               @ApiParam(value = "Specify subscription name", required = true)
+                               @PathParam("subscription") String subscription,
+                               @QueryParam("authoritative") @DefaultValue("false") boolean authoritative,
+                               CreateConsumerRequest consumerMessageRequest) {
+        validateTopicName(tenant, namespace, encodedTopic);
+        createConsumer(asyncResponse, consumerMessageRequest, authoritative, subscription);
     }
 
 }

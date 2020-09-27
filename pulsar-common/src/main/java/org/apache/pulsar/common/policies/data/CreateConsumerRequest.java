@@ -18,9 +18,6 @@
  */
 package org.apache.pulsar.common.policies.data;
 
-import java.util.List;
-import java.util.Map;
-
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.Getter;
@@ -35,35 +32,13 @@ import lombok.Setter;
 @Setter
 @Getter
 @NoArgsConstructor
-public class RestProduceMessage {
+public class CreateConsumerRequest {
+    String consumerName;
 
-    // Key of the message for routing policy.
-    private String key;
+    String keySchema;
 
-    // Encoded message body.
-    private String value;
+    String valueSchema;
 
-    // The partition to publish the message to.
-    private int partition;
+    int schemaVersion;
 
-    // The properties of the message.
-    private Map<String, String> properties;
-
-    // The event time of the message.
-    private long eventTime;
-
-    // The sequence id of the message.
-    private long sequenceId;
-
-    // The list of clusters to replicate.
-    private List<String> replicationClusters;
-
-    // The flag to disable replication.
-    private boolean disableReplication;
-
-    // Deliver the message only at or after the specified absolute timestamp.
-    private long deliverAt;
-
-    // Deliver the message only after the specified relative delay in milliseconds.
-    private long deliverAfterMs;
 }

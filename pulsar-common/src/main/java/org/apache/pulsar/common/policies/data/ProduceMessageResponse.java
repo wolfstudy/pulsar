@@ -18,14 +18,17 @@
  */
 package org.apache.pulsar.common.policies.data;
 
+import java.util.List;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.util.List;
-
+/**
+ *
+ */
 @Data
 @AllArgsConstructor
 @Setter
@@ -35,6 +38,9 @@ public class ProduceMessageResponse {
 
     List<ProduceMessageResult> results;
 
+    /**
+     *
+     */
     @Setter
     @Getter
     public static class ProduceMessageResult {
