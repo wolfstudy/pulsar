@@ -43,7 +43,7 @@ import javax.ws.rs.core.MediaType;
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
 @Api(value = "/topics", description = "Apis for produce,consume and ack message on topics.", tags = "topics")
-public class Topics extends TopicBase {
+public class Topics extends TopicsBase {
 
     @POST
     @Path("/{tenant}/{namespace}/{topic}")

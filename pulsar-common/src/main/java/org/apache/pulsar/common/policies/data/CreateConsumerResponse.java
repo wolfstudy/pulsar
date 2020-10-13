@@ -19,6 +19,8 @@ import lombok.Setter;
 public class CreateConsumerResponse {
     List<CreateConsumerResponse.CreateConsumerResult> results;
 
+    String url;
+
     /**
      *
      */

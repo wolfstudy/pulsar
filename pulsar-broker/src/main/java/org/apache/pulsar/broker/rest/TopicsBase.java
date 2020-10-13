@@ -20,8 +20,11 @@ package org.apache.pulsar.broker.rest;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.google.common.collect.ImmutableList;
 import io.netty.buffer.ByteBuf;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.bookkeeper.mledger.AsyncCallbacks;
+import org.apache.bookkeeper.mledger.Entry;
 import org.apache.bookkeeper.mledger.ManagedLedgerException;
 import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.commons.lang3.tuple.Pair;
@@ -30,6 +33,8 @@ import org.apache.pulsar.broker.lookup.LookupResult;
 import org.apache.pulsar.broker.namespace.LookupOptions;
 import org.apache.pulsar.broker.service.BrokerServiceException;
 import org.apache.pulsar.broker.service.Subscription;
+import org.apache.pulsar.broker.service.nonpersistent.NonPersistentSubscription;
+import org.apache.pulsar.broker.service.persistent.PersistentSubscription;
 import org.apache.pulsar.broker.web.RestException;
 import org.apache.pulsar.client.api.CompressionType;
 import org.apache.pulsar.client.api.Message;
@@ -75,17 +80,21 @@ import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 @Slf4j
-public class TopicBase extends PersistentTopicsBase {
+public class TopicsBase extends PersistentTopicsBase {
+
+    private static final Random random = new Random(System.currentTimeMillis());
+
+    private static String DEFAULT_PRODUCER_NAME = "RestProducer";
 
     private ConcurrentOpenHashMap<String, ConcurrentOpenHashSet<Integer>> owningTopics = new ConcurrentOpenHashMap<>();
 
-    private Map<String, Set<String>> subscriptions = new HashMap<>();
+    private ConcurrentOpenHashMap<String, ConcurrentOpenHashMap<String, Schema>> subscriptions = new ConcurrentOpenHashMap<>();
 
-    private static String DEFAULT_PRODUCER_NAME = "RestProducer";
 
     protected  void publishMessages(AsyncResponse asyncResponse, ProduceMessageRequest request, boolean authoritative) {
         String topic = topicName.getPartitionedTopicName();
@@ -445,6 +454,8 @@ public class TopicBase extends PersistentTopicsBase {
         }
     }
 
+    // For rest api, adding a consumer is only adding the consumer name to subscriptions map to keep track of
+    // consumers according to the subscription type.
     private void internalCreateConsumer(AsyncResponse asyncResponse, CreateConsumerRequest request,
                                         ConcurrentOpenHashSet<Integer> partitionIndexes, String subscriptionName) {
         List<CreateConsumerResponse.CreateConsumerResult> createConsumerResults = new ArrayList<>();
@@ -463,13 +474,15 @@ public class TopicBase extends PersistentTopicsBase {
                 } else {
                     Subscription subscription = t.get().getSubscription(subscriptionName);
                     SubType subType = subscription.getType();
+                    // Generate a key from partition topic name and subscription name to keep track of
+                    // all rest subscription for this topic.
                     String key = partitionedTopicName + "_" + subscriptionName;
                     if (subType == SubType.Exclusive) {
                         synchronized (this) {
                             if (!subscriptions.containsKey(key)) {
                                 // Succeed
                                 String consumerId = subscriptionName + UUID.randomUUID();
-                                subscriptions.computeIfAbsent(key, k-> new HashSet<>()).add(consumerId);
+                                subscriptions.computeIfAbsent(key, k-> new ConcurrentOpenHashMap<>());//.add(consumerId);
                                 createConsumerResults.add(new CreateConsumerResponse.CreateConsumerResult(consumerId, partitionIndex));
                             } else {
                                 // Other consumer already connect for exclusive subscription.
@@ -477,7 +490,7 @@ public class TopicBase extends PersistentTopicsBase {
                             }
                         }
                     } else if (subType == SubType.Shared) {
-                        subscriptions.computeIfAbsent(key, k-> new HashSet<>()).add(subscriptionName + UUID.randomUUID());
+                        subscriptions.computeIfAbsent(key, k-> new ConcurrentOpenHashMap<>());//.add(subscriptionName + UUID.randomUUID());
                         createConsumerResults.add(new CreateConsumerResponse.CreateConsumerResult(subscriptionName + UUID.randomUUID(), partitionIndex));
                     } else {
                         if (log.isDebugEnabled()) {
@@ -487,27 +500,125 @@ public class TopicBase extends PersistentTopicsBase {
                         createConsumerResults.add(new CreateConsumerResponse.CreateConsumerResult("", -1));
                     }
                 }
+            }).exceptionally(e -> {
+                if (log.isDebugEnabled()) {
+                    log.warn("Topic {} not owned by broker {} anymore, rest create consumer request fail on this topic",
+                            partitionedTopicName, pulsar().getBrokerServiceUrl());
+                }
+                createConsumerResults.add(new CreateConsumerResponse.CreateConsumerResult("", -1));
+                return null;
             });
-        }
-        asyncResponse.resume(new CreateConsumerResponse(createConsumerResults));
-    }
 
-    private CompletableFuture<Void> internalCreateConsumerOnSinglePartition() {
+        }
+        asyncResponse.resume(new CreateConsumerResponse(createConsumerResults, pulsar().getBrokerServiceUrl()));
+    }
+//
+//    private CompletableFuture<Void> internalCreateConsumerOnSinglePartition() {
+//        return null;
+//    }
+
+    protected ConsumeMessagesResponse consumeMessages(AsyncResponse asyncResponse, ConsumeMessagesRequest request,
+                                   String consumerId) {
+        //internalConsumerMessages();
         return null;
     }
 
-    private synchronized void internalReadMessage() {
-//        if (subscription == null) {
-//            // If subscription not found subscription to this partition will be marked fail.
-//
-//        }
-//        if (subscription instanceof PersistentSubscription) {
-//            // Persistent subscription.
-//            ((PersistentSubscription) subscription).getCursor();
-//        } else {
-//            // Non-persistent subscription.
-//            ((NonPersistentSubscription) subscription).getDispatcher();
-//        }
+    private ConsumeMessagesResponse internalConsumerMessages(ConsumeMessagesRequest request, String subscriptionName) {
+        //If non partitioned topic or single partition of partitioned topic, read message from single partition
+        //If multiple partition topic, start from random partition this broker own.
+
+        List<ConsumeMessagesResponse.ConsumeMessagesResult> messages = new ArrayList<>();
+        long startEpoch = System.currentTimeMillis();
+        int messagesRead = 0, byteRead = 0;
+        List<Integer> owningPartitions = owningTopics.get(topicName.getPartitionedTopicName()).values();
+        int startingIndex = random.nextInt(owningPartitions.size());
+        while (System.currentTimeMillis() - startEpoch < request.getTimeout() && messagesRead < request.getMaxMessage()
+        && byteRead < request.getMaxByte()) {
+            int entryToRead = request.getMaxMessage() - messagesRead;
+            int partitionsToRead = owningPartitions.size() - startingIndex % owningPartitions.size();
+            List<CompletableFuture<List<Entry>>> futures = new ArrayList<>();
+            for (int index = startingIndex % owningPartitions.size(); index < owningPartitions.size(); index++, startingIndex++) {
+                futures.add(internalConsumeMessageFromSinglePartition(topicName.getPartition(owningPartitions.get(index)).toString(), subscriptionName,
+                        entryToRead / partitionsToRead + 1));
+            }
+            FutureUtil.waitForAll(futures);
+            for (int index = 0; index < futures.size() && messagesRead < request.getMaxMessage()
+                    && byteRead < request.getMaxByte(); index++) {
+                try {
+                    List<Entry> entries = futures.get(index).get();
+                    for (int i = 0; i < entries.size(); i++) {
+                        Entry entry = entries.get(i);
+                        ByteBuf metadataAndPayload = entry.getDataBuffer();
+                        PulsarApi.MessageMetadata messageMetadata = Commands.parseMessageMetadata(metadataAndPayload);
+                        int messageSize = metadataAndPayload.readableBytes();
+                        ConsumeMessagesResponse.ConsumeMessagesResult consumeMessagesResult = new ConsumeMessagesResponse.ConsumeMessagesResult();
+                        consumeMessagesResult.setEventTime(messageMetadata.getEventTime());
+                        //consumeMessagesResult.setPartition(topicName.getPartition(owningPartitions.get());
+                        consumeMessagesResult.setLedgerId(entry.getLedgerId());
+                        consumeMessagesResult.setEntryId(entry.getEntryId());
+                        consumeMessagesResult.setPartition(0);
+                        consumeMessagesResult.setProperties(messageMetadata.getPropertiesList().toString());
+                        //consumeMessagesResult.setKey();
+                        messages.add(consumeMessagesResult);
+                        messagesRead++;
+                        byteRead += messageSize;
+                    }
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                } catch (ExecutionException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        return null;
+    }
+
+    private CompletableFuture<List<Entry>> internalConsumeMessageFromSinglePartition(String topicName, String subscriptionName, int numberOfEntryToRead) {
+        CompletableFuture<List<Entry>> readFuture = new CompletableFuture<>();
+        pulsar().getBrokerService().getTopic(topicName, false).thenAccept(t -> {
+            if (!t.isPresent()) {
+                // process error, topic not owned by the broker anymore
+                if (log.isDebugEnabled()) {
+                    log.warn("Trying to rest consume message on subscription: {} for topic {} but topic is not found",
+                            subscriptionName, topicName);
+                }
+                readFuture.complete(ImmutableList.of());
+            } else {
+                Subscription subscription = t.get().getSubscription(subscriptionName);
+                if (null == subscription) {
+                    if (log.isDebugEnabled()) {
+                        log.warn("Trying to rest consume message on subscription: {} for topic {} but subscription is not found",
+                                subscriptionName, topicName);
+                    }
+                    readFuture.complete(ImmutableList.of());
+                } else {
+                    if (subscription instanceof PersistentSubscription) {
+                        // synchronize on the subscription so multiple read won't mess up cursor.
+                        synchronized (subscription) {
+                            // Persistent subscription.
+                            ((PersistentSubscription) subscription).getCursor().asyncReadEntries(numberOfEntryToRead,
+                                    new AsyncCallbacks.ReadEntriesCallback() {
+                                        @Override
+                                        public void readEntriesComplete(List<Entry> entries, Object ctx) {
+                                            readFuture.complete(entries);
+                                        }
+
+                                        @Override
+                                        public void readEntriesFailed(ManagedLedgerException exception, Object ctx) {
+                                            readFuture.complete(ImmutableList.of());
+                                        }
+
+                                    }, null);
+                        }
+                    } else {
+                        // Non-persistent subscription can't be supported yet as message published to non-persistent topic need to
+                        // be immediately deliver to consumer connected, and Rest consumers can't do that.
+                        readFuture.complete(ImmutableList.of());
+                    }
+                }
+            }
+        });
+        return readFuture;
     }
 
 }
