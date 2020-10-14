@@ -463,8 +463,8 @@ public class TopicsBase extends PersistentTopicsBase {
         for (int partitionIndex : partitionIndexes.values()) {
             String partitionedTopicName = topicName.getPartition(partitionIndex).toString();
             // Subscribe for each partition this broker owns
-            pulsar().getBrokerService().getTopic(partitionedTopicName, false).thenAccept(t -> {
-                if (!t.isPresent()) {
+            pulsar().getBrokerService().getTopic(partitionedTopicName, false).thenAccept(topic -> {
+                if (!topic.isPresent()) {
                     // process error, topic not owned by the broker anymore
                     if (log.isDebugEnabled()) {
                         log.warn("Trying to add rest consumer to subscription: {} on topic {} but topic is not found",
@@ -472,7 +472,8 @@ public class TopicsBase extends PersistentTopicsBase {
                     }
                     createConsumerResults.add(new CreateConsumerResponse.CreateConsumerResult("", -1));
                 } else {
-                    Subscription subscription = t.get().getSubscription(subscriptionName);
+                    topic.get();
+                    Subscription subscription = topic.get().getSubscription(subscriptionName);
                     SubType subType = subscription.getType();
                     // Generate a key from partition topic name and subscription name to keep track of
                     // all rest subscription for this topic.
@@ -482,7 +483,7 @@ public class TopicsBase extends PersistentTopicsBase {
                             if (!subscriptions.containsKey(key)) {
                                 // Succeed
                                 String consumerId = subscriptionName + UUID.randomUUID();
-                                subscriptions.computeIfAbsent(key, k-> new ConcurrentOpenHashMap<>());//.add(consumerId);
+                                subscriptions.computeIfAbsent(key, k-> new ConcurrentOpenHashMap<>());
                                 createConsumerResults.add(new CreateConsumerResponse.CreateConsumerResult(consumerId, partitionIndex));
                             } else {
                                 // Other consumer already connect for exclusive subscription.
@@ -512,22 +513,18 @@ public class TopicsBase extends PersistentTopicsBase {
         }
         asyncResponse.resume(new CreateConsumerResponse(createConsumerResults, pulsar().getBrokerServiceUrl()));
     }
-//
-//    private CompletableFuture<Void> internalCreateConsumerOnSinglePartition() {
-//        return null;
-//    }
 
-    protected ConsumeMessagesResponse consumeMessages(AsyncResponse asyncResponse, ConsumeMessagesRequest request,
+    protected ConsumeMessageResponse consumeMessages(AsyncResponse asyncResponse, ConsumeMessageRequest request,
                                    String consumerId) {
         //internalConsumerMessages();
         return null;
     }
 
-    private ConsumeMessagesResponse internalConsumerMessages(ConsumeMessagesRequest request, String subscriptionName) {
+    private ConsumeMessageResponse internalConsumerMessages(ConsumeMessageRequest request, String subscriptionName) {
         //If non partitioned topic or single partition of partitioned topic, read message from single partition
         //If multiple partition topic, start from random partition this broker own.
 
-        List<ConsumeMessagesResponse.ConsumeMessagesResult> messages = new ArrayList<>();
+        List<ConsumeMessageResponse.ConsumeMessageResult> messages = new ArrayList<>();
         long startEpoch = System.currentTimeMillis();
         int messagesRead = 0, byteRead = 0;
         List<Integer> owningPartitions = owningTopics.get(topicName.getPartitionedTopicName()).values();
@@ -551,7 +548,7 @@ public class TopicsBase extends PersistentTopicsBase {
                         ByteBuf metadataAndPayload = entry.getDataBuffer();
                         PulsarApi.MessageMetadata messageMetadata = Commands.parseMessageMetadata(metadataAndPayload);
                         int messageSize = metadataAndPayload.readableBytes();
-                        ConsumeMessagesResponse.ConsumeMessagesResult consumeMessagesResult = new ConsumeMessagesResponse.ConsumeMessagesResult();
+                        ConsumeMessageResponse.ConsumeMessageResult consumeMessagesResult = new ConsumeMessageResponse.ConsumeMessageResult();
                         consumeMessagesResult.setEventTime(messageMetadata.getEventTime());
                         //consumeMessagesResult.setPartition(topicName.getPartition(owningPartitions.get());
                         consumeMessagesResult.setLedgerId(entry.getLedgerId());
@@ -575,8 +572,8 @@ public class TopicsBase extends PersistentTopicsBase {
 
     private CompletableFuture<List<Entry>> internalConsumeMessageFromSinglePartition(String topicName, String subscriptionName, int numberOfEntryToRead) {
         CompletableFuture<List<Entry>> readFuture = new CompletableFuture<>();
-        pulsar().getBrokerService().getTopic(topicName, false).thenAccept(t -> {
-            if (!t.isPresent()) {
+        pulsar().getBrokerService().getTopic(topicName, false).thenAccept(topic -> {
+            if (!topic.isPresent()) {
                 // process error, topic not owned by the broker anymore
                 if (log.isDebugEnabled()) {
                     log.warn("Trying to rest consume message on subscription: {} for topic {} but topic is not found",
@@ -584,7 +581,7 @@ public class TopicsBase extends PersistentTopicsBase {
                 }
                 readFuture.complete(ImmutableList.of());
             } else {
-                Subscription subscription = t.get().getSubscription(subscriptionName);
+                Subscription subscription = topic.get().getSubscription(subscriptionName);
                 if (null == subscription) {
                     if (log.isDebugEnabled()) {
                         log.warn("Trying to rest consume message on subscription: {} for topic {} but subscription is not found",
@@ -619,6 +616,131 @@ public class TopicsBase extends PersistentTopicsBase {
             }
         });
         return readFuture;
+    }
+
+    protected void ackMessage(AsyncResponse asyncResponse, AckMessageRequest request, String subscriptionName, String consumerId) {
+        List<CompletableFuture<Boolean>> futures = new ArrayList<>();
+        List<Boolean> results = new ArrayList<>();
+        for (int index = 0; index < request.getMessagePositions().size(); index++) {
+            List<String> messagePosition = request.getMessagePositions().get(index);
+            futures.add(internalAckMessage(request.getAckType(), Integer.valueOf(messagePosition.get(0)),
+                    Long.valueOf(messagePosition.get(1)), Long.valueOf(messagePosition.get(2)), subscriptionName, consumerId));
+        }
+        FutureUtil.waitForAll(futures);
+        for (int index = 0; index < futures.size(); index++) {
+            try {
+                results.add(futures.get(index).get());
+            } catch (InterruptedException | ExecutionException e) {
+                if (log.isDebugEnabled()) {
+                    log.warn("Try to rest ack message on subscription {} for topic {} with consumerId {}" +
+                            " on position {}:{} but ack failed", subscriptionName, topicName, consumerId,
+                            request.getMessagePositions().get(index).get(1), request.getMessagePositions().get(index).get(2));
+                }
+                results.add(false);
+            }
+        }
+        asyncResponse.resume(new AckMessageResponse(results));
+    }
+
+    private CompletableFuture<Boolean> internalAckMessage(String ackType, int partition, long ledgerId, long entryId,
+                                       String subscriptionName, String consumerId) {
+        CompletableFuture<Boolean> future = new CompletableFuture<>();
+        if (!owningTopics.get(topicName.getPartitionedTopicName()).contains(partition)) {
+            if (log.isDebugEnabled()) {
+                log.warn("Try to rest ack message on subscription {} for topic {} with consumerId {}" +
+                        " but topic is not own by this broker", subscriptionName, topicName, consumerId);
+            }
+            future.complete(false);
+            return future;
+        }
+        AsyncCallbacks.MarkDeleteCallback markDeleteCallback = new AsyncCallbacks.MarkDeleteCallback() {
+            @Override
+            public void markDeleteComplete(Object ctx) {
+                future.complete(true);
+            }
+
+            @Override
+            public void markDeleteFailed(ManagedLedgerException exception, Object ctx) {
+                future.complete(false);
+            }
+        };
+        pulsar().getBrokerService().getTopic(topicName.getPartition(partition).toString(), false).
+            thenAccept(topic -> {
+                if (!topic.isPresent()) {
+                    if (log.isDebugEnabled()) {
+                        log.warn("Try to rest ack message on subscription {} for topic {} with consumerId {}" +
+                                " but topic doesn't exist on this broker", subscriptionName, topicName, consumerId);
+                    }
+                    future.complete(false);
+                } else {
+                    Subscription subscription = topic.get().getSubscription(subscriptionName);
+                    if (null == subscription) {
+                        if (log.isDebugEnabled()) {
+                            log.warn("Try to rest ack message on subscription {} for topic {} with consumerId {}" +
+                                    " but subscription doesn't exist on this broker", subscriptionName, topicName, consumerId);
+                        }
+                        future.complete(false);
+                    }
+                    switch (AckType.fromString(ackType)) {
+                        case SINGLE:
+                            ((PersistentSubscription) subscription).getCursor().asyncDelete(PositionImpl.get(ledgerId, entryId),
+                                new AsyncCallbacks.DeleteCallback() {
+                                    @Override
+                                    public void deleteComplete(Object ctx) {
+                                        future.complete(true);
+                                    }
+
+                                    @Override
+                                    public void deleteFailed(ManagedLedgerException exception, Object ctx) {
+                                        future.complete(false);
+                                    }
+                            }, null);
+                            break;
+                        case CUMULATIVE:
+                            ((PersistentSubscription) subscription).getCursor().asyncMarkDelete(PositionImpl.get(ledgerId, entryId),
+                                new AsyncCallbacks.MarkDeleteCallback() {
+                                    @Override
+                                    public void markDeleteComplete(Object ctx) {
+                                        future.complete(true);
+                                    }
+
+                                    @Override
+                                    public void markDeleteFailed(ManagedLedgerException exception, Object ctx) {
+                                        future.complete(false);
+                                    }
+                            }, null);
+
+                            break;
+                        default:
+                            if (log.isDebugEnabled()) {
+                                log.warn("Try to rest ack message on subscription {} for topic {} with consumerId {}" +
+                                        " but ack type {} is not recognized", subscriptionName, topicName, consumerId, ackType);
+                            }
+                            future.complete(false);
+                    }
+                }
+        });
+        return future;
+    }
+
+    private enum AckType {
+        SINGLE("single"),
+        CUMULATIVE("cumulative");
+
+        String type;
+
+        AckType(String type) {
+            this.type = type;
+        }
+
+        public static AckType fromString(String type) {
+            for (AckType ackType : values()) {
+                if (ackType.type.equalsIgnoreCase(type)) {
+                    return ackType;
+                }
+            }
+            return null;
+        }
     }
 
 }

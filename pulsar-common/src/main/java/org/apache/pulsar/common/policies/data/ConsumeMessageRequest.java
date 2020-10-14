@@ -14,7 +14,7 @@ import lombok.Setter;
 @Setter
 @Getter
 @NoArgsConstructor
-public class ConsumeMessagesRequest {
+public class ConsumeMessageRequest {
     long timeout;
 
     int maxMessage;

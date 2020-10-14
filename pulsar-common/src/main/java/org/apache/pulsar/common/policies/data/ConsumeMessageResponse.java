@@ -16,15 +16,15 @@ import java.util.List;
 @Setter
 @Getter
 @NoArgsConstructor
-public class ConsumeMessagesResponse {
-    List<ConsumeMessagesResult> results;
+public class ConsumeMessageResponse {
+    List<ConsumeMessageResult> results;
 
     /**
      *
      */
     @Setter
     @Getter
-    public static class ConsumeMessagesResult {
+    public static class ConsumeMessageResult {
         int partition;
         long ledgerId;
         long entryId;

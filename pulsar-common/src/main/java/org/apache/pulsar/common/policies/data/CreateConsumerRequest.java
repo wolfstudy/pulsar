@@ -40,5 +40,4 @@ public class CreateConsumerRequest {
     String valueSchema;
 
     int schemaVersion;
-
 }
