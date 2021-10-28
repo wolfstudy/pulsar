@@ -93,4 +93,28 @@ class NegativeAcksTracker {
             this.timeout = timer.newTimeout(this::triggerRedelivery, timerIntervalNanos, TimeUnit.NANOSECONDS);
         }
     }
+
+    public synchronized void add(MessageId messageId, long t) {
+        NegativeAckRedeliveryExponentialBackoff exponentialBackoff = new NegativeAckRedeliveryExponentialBackoff();
+        exponentialBackoff.next(2);
+        if (messageId instanceof BatchMessageIdImpl) {
+            BatchMessageIdImpl batchMessageId = (BatchMessageIdImpl) messageId;
+            messageId = new MessageIdImpl(batchMessageId.getLedgerId(), batchMessageId.getEntryId(),
+                    batchMessageId.getPartitionIndex());
+        }
+
+        NegativeAckRedeliveryExponentialBackoff backoff = new NegativeAckRedeliveryExponentialBackoff();
+        backoff.next(4);
+
+        if (nackedMessages == null) {
+            nackedMessages = new HashMap<>();
+        }
+        nackedMessages.put(messageId, System.nanoTime() + nackDelayNanos);
+
+        if (this.timeout == null) {
+            // Schedule a task and group all the redeliveries for same period. Leave a small buffer to allow for
+            // nack immediately following the current one will be batched into the same redeliver request.
+            this.timeout = timer.newTimeout(this::triggerRedelivery, timerIntervalNanos, TimeUnit.NANOSECONDS);
+        }
+    }
 }

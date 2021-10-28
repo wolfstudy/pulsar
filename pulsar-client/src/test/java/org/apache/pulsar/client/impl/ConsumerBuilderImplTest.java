@@ -302,4 +302,9 @@ public class ConsumerBuilderImplTest {
         consumerBuilderImpl.subscriptionMode(SubscriptionMode.NonDurable)
             .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest);
     }
+
+    @Test
+    public void testNegativeAckRedeliveryBackoff() {
+        consumerBuilderImpl.negativeAckRedeliveryBackoff(new NegativeAckRedeliveryExponentialBackoff());
+    }
 }
