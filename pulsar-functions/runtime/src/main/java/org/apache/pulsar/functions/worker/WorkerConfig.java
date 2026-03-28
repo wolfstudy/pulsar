@@ -907,15 +907,15 @@ public class WorkerConfig implements Serializable, PulsarConfiguration {
         this.properties = properties;
     }
 
-    /********* DEPRECATED CONFIGS. *********/
+    // --------- DEPRECATED CONFIGS ---------
 
+    /**
+     * @deprecated in favor for using functionRuntimeFactoryClassName and functionRuntimeFactoryConfigs
+     * for specifying the function runtime and configs to use
+     */
     @Deprecated
     @Data
     @EqualsAndHashCode(callSuper = false)
-    /**
-     * @Deprecated in favor for using functionRuntimeFactoryClassName and functionRuntimeFactoryConfigs
-     * for specifying the function runtime and configs to use
-     */
     public static class ThreadContainerFactory extends ThreadRuntimeFactoryConfig {
 
     }
@@ -926,13 +926,13 @@ public class WorkerConfig implements Serializable, PulsarConfiguration {
     @Deprecated
     private ThreadContainerFactory threadContainerFactory;
 
+    /**
+     * @deprecated in favor for using functionRuntimeFactoryClassName and functionRuntimeFactoryConfigs
+     * for specifying the function runtime and configs to use
+     */
     @Deprecated
     @Data
     @EqualsAndHashCode(callSuper = false)
-    /**
-     * @Deprecated in favor for using functionRuntimeFactoryClassName and functionRuntimeFactoryConfigs
-     * for specifying the function runtime and configs to use
-     */
     public static class ProcessContainerFactory extends ProcessRuntimeFactoryConfig {
 
     }
@@ -943,13 +943,13 @@ public class WorkerConfig implements Serializable, PulsarConfiguration {
     @Deprecated
     private ProcessContainerFactory processContainerFactory;
 
+    /**
+     * @deprecated in favor for using functionRuntimeFactoryClassName and functionRuntimeFactoryConfigs
+     * for specifying the function runtime and configs to use
+     */
     @Deprecated
     @Data
     @EqualsAndHashCode(callSuper = false)
-    /**
-     * @Deprecated in favor for using functionRuntimeFactoryClassName and functionRuntimeFactoryConfigs
-     * for specifying the function runtime and configs to use
-     */
     public static class KubernetesContainerFactory extends KubernetesRuntimeFactoryConfig {
 
     }
