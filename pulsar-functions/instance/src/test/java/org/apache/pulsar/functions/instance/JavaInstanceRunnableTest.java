@@ -189,7 +189,7 @@ public class JavaInstanceRunnableTest {
         javaInstanceRunnable.setStats(manager);
         JavaExecutionResult javaExecutionResult = new JavaExecutionResult();
         Thread.sleep(500);
-        Record record = mock(Record.class);
+        Record<?> record = mock(Record.class);
         javaInstanceRunnable.handleResult(record, javaExecutionResult);
         ArgumentCaptor<Long> timeCaptor = ArgumentCaptor.forClass(Long.class);
         verify(manager).processTimeEnd(timeCaptor.capture());
@@ -201,7 +201,7 @@ public class JavaInstanceRunnableTest {
         JavaExecutionResult javaExecutionResult = new JavaExecutionResult();
 
         // ProcessingGuarantees == MANUAL, not need ack.
-        Record record = mock(Record.class);
+        Record<?> record = mock(Record.class);
         getJavaInstanceRunnable(true, org.apache.pulsar.functions.proto.Function.ProcessingGuarantees.MANUAL)
                 .handleResult(record, javaExecutionResult);
         verify(record, times(0)).ack();
@@ -411,7 +411,7 @@ public class JavaInstanceRunnableTest {
         }
 
         @Override
-        public void open(Map config, SourceContext sourceContext) throws Exception {
+        public void open(Map<String, Object> config, SourceContext sourceContext) throws Exception {
             context = sourceContext;
             queue = new LinkedBlockingQueue<>();
         }
@@ -450,7 +450,7 @@ public class JavaInstanceRunnableTest {
         SinkContext context;
 
         @Override
-        public void open(Map config, SinkContext sinkContext) throws Exception {
+        public void open(Map<String, Object> config, SinkContext sinkContext) throws Exception {
             this.context = sinkContext;
         }
 

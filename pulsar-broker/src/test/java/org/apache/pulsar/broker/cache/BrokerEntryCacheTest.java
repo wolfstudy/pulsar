@@ -160,6 +160,7 @@ public class BrokerEntryCacheTest extends ProducerConsumerBase {
                 .create();
 
         // Create consumers on the tail (reading from latest)
+        @SuppressWarnings({"unchecked", "rawtypes"})
         Consumer<Long>[] consumers = new Consumer[numConsumers];
         for (int i = 0; i < numConsumers; i++) {
             consumers[i] = pulsarClient.newConsumer(Schema.INT64)
@@ -332,6 +333,7 @@ public class BrokerEntryCacheTest extends ProducerConsumerBase {
                 .create();
 
         // Create consumers in paused state with receiver queue size of 50
+        @SuppressWarnings({"unchecked", "rawtypes"})
         Consumer<Long>[] consumers = new Consumer[numConsumers];
         for (int i = 0; i < numConsumers; i++) {
             consumers[i] = pulsarClient.newConsumer(Schema.INT64)
@@ -492,6 +494,7 @@ public class BrokerEntryCacheTest extends ProducerConsumerBase {
                 .create();
 
         // Create consumers on the tail (reading from latest)
+        @SuppressWarnings({"unchecked", "rawtypes"})
         Consumer<Long>[] consumers = new Consumer[numConsumers];
         for (int i = 0; i < numConsumers; i++) {
             consumers[i] = pulsarClient.newConsumer(Schema.INT64)
@@ -603,6 +606,7 @@ public class BrokerEntryCacheTest extends ProducerConsumerBase {
                 .create();
 
         // Create consumers on the tail (reading from latest)
+        @SuppressWarnings({"unchecked", "rawtypes"})
         Consumer<Long>[] consumers = new Consumer[numConsumers];
         for (int i = 0; i < numConsumers; i++) {
             consumers[i] = pulsarClient.newConsumer(Schema.INT64)
