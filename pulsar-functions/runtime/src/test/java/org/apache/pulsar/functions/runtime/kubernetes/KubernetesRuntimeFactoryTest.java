@@ -123,6 +123,7 @@ public class KubernetesRuntimeFactoryTest {
     }
 
     @AfterMethod(alwaysRun = true)
+    @SuppressWarnings("unchecked")
     public void tearDown() {
         if (null != this.factory) {
             this.factory.close();
@@ -137,6 +138,7 @@ public class KubernetesRuntimeFactoryTest {
                 resourceChangeInLockStep, Optional.empty(), Optional.empty());
     }
 
+    @SuppressWarnings("unchecked")
     KubernetesRuntimeFactory createKubernetesRuntimeFactory(String extraDepsDir,
                                                             Resources minResources,
                                                             Resources maxResources,
@@ -539,6 +541,7 @@ public class KubernetesRuntimeFactoryTest {
        assertEquals(kubernetesRuntimeFactory.getImagePullPolicy(), "test_imagePullPolicy2");
     }
 
+    @SuppressWarnings("unchecked")
     private KubernetesRuntimeFactory getKuberentesRuntimeFactory() {
         KubernetesRuntimeFactory kubernetesRuntimeFactory = new KubernetesRuntimeFactory();
         WorkerConfig workerConfig = new WorkerConfig();

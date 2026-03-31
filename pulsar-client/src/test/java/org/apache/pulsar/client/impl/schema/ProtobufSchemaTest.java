@@ -150,6 +150,7 @@ public class ProtobufSchemaTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     public void testGenericOf() {
         try {
             ProtobufSchema<org.apache.pulsar.client.schema.proto.Test.TestMessage> protobufSchema =

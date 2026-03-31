@@ -138,6 +138,7 @@ public class FunctionApiV2ResourceTest extends AbstractFunctionApiResourceTest {
 
     }
 
+    @SuppressWarnings("unchecked")
     protected List<String> listDefaultFunctions() {
         return new Gson().fromJson(readEntity(resource.listFunctions(
                 TENANT,

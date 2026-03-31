@@ -49,6 +49,7 @@ public class SinkTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     public void testSinkContext() throws Exception {
         SinkContext sinkContext = mock(SinkContext.class);
 

@@ -117,6 +117,7 @@ public class SchedulerManagerTest {
     }
 
     @BeforeMethod
+    @SuppressWarnings("unchecked")
     public void setup() {
         WorkerConfig workerConfig = new WorkerConfig();
         workerConfig.setWorkerId("worker-1");
@@ -176,6 +177,7 @@ public class SchedulerManagerTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     public void testSchedule() throws Exception {
 
         List<FunctionMetaData> functionMetaDataList = new LinkedList<>();
@@ -756,6 +758,7 @@ public class SchedulerManagerTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     public void testDrain() throws Exception {
 
         final int numWorkers = 4;

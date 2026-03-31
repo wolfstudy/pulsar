@@ -29,7 +29,7 @@ import org.testng.annotations.Test;
 
 public class PulsarFunctionRecordTest {
 
-    @SuppressWarnings("deprecation")
+    @SuppressWarnings({"deprecation", "unchecked"})
     @Test
     public void testAck() {
         Record<?> record = mock(Record.class);

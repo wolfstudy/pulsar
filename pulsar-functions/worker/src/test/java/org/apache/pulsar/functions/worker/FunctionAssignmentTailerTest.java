@@ -80,6 +80,7 @@ public class FunctionAssignmentTailerTest {
     }
 
     @Test(timeOut = 10000)
+    @SuppressWarnings("unchecked")
     public void testErrorNotifier() throws Exception {
         WorkerConfig workerConfig = new WorkerConfig();
         workerConfig.setWorkerId("worker-1");
@@ -128,6 +129,7 @@ public class FunctionAssignmentTailerTest {
 
         when(reader.hasMessageAvailable()).thenAnswer(new Answer<Boolean>() {
             @Override
+            @SuppressWarnings("unchecked")
             public Boolean answer(InvocationOnMock invocationOnMock) throws Throwable {
                 return !messageList.isEmpty();
             }
@@ -196,6 +198,7 @@ public class FunctionAssignmentTailerTest {
     }
 
     @Test(timeOut = 10000)
+    @SuppressWarnings("unchecked")
     public void testProcessingAssignments() throws Exception {
         WorkerConfig workerConfig = new WorkerConfig();
         workerConfig.setWorkerId("worker-1");
@@ -248,6 +251,7 @@ public class FunctionAssignmentTailerTest {
 
         when(reader.hasMessageAvailable()).thenAnswer(new Answer<Boolean>() {
             @Override
+            @SuppressWarnings("unchecked")
             public Boolean answer(InvocationOnMock invocationOnMock) throws Throwable {
                 return !messageList.isEmpty();
             }
@@ -308,6 +312,7 @@ public class FunctionAssignmentTailerTest {
     }
 
     @Test(timeOut = 10000)
+    @SuppressWarnings("unchecked")
     public void testTriggerReadToTheEndAndExit() throws Exception {
         WorkerConfig workerConfig = new WorkerConfig();
         workerConfig.setWorkerId("worker-1");
@@ -360,6 +365,7 @@ public class FunctionAssignmentTailerTest {
 
         when(reader.hasMessageAvailable()).thenAnswer(new Answer<Boolean>() {
             @Override
+            @SuppressWarnings("unchecked")
             public Boolean answer(InvocationOnMock invocationOnMock) throws Throwable {
                 return !messageList.isEmpty();
             }
