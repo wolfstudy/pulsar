@@ -25,7 +25,6 @@ import static org.mockito.Mockito.verify;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
-
 import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
 import org.apache.pulsar.client.api.Socks5ProxyScope;
