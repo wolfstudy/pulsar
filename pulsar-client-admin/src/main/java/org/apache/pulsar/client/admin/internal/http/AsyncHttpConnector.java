@@ -596,6 +596,9 @@ public class AsyncHttpConnector implements Connector, AsyncHttpRequestExecutor {
         if (socks5Address == null) {
             return;
         }
+        if (!conf.getSocks5ProxyScope().appliesToHttp()) {
+            return;
+        }
         ProxyServer.Builder proxyBuilder =
                 new ProxyServer.Builder(socks5Address.getHostString(), socks5Address.getPort())
                         .setProxyType(ProxyType.SOCKS_V5);

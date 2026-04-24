@@ -38,7 +38,6 @@ import org.mockito.ArgumentCaptor;
 import org.testng.annotations.Test;
 
 /**
- * Add by tencent.
  * Unit tests for the SOCKS5 proxy wiring added in {@link AsyncHttpConnector}.
  */
 public class AsyncHttpConnectorSocks5Test {

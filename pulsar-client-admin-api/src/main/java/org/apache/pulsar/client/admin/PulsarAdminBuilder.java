@@ -18,6 +18,7 @@
  */
 package org.apache.pulsar.client.admin;
 
+import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -25,6 +26,7 @@ import org.apache.pulsar.client.api.Authentication;
 import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.client.api.PulsarClientException.UnsupportedAuthenticationException;
 import org.apache.pulsar.client.api.PulsarClientSharedResources;
+import org.apache.pulsar.client.api.Socks5ProxyScope;
 
 /**
  * Builder class for a {@link PulsarAdmin} instance.
@@ -394,6 +396,48 @@ public interface PulsarAdminBuilder {
      * @throws IllegalArgumentException if the length of description exceeds 64
      */
     PulsarAdminBuilder description(String description);
+
+    /**
+     * Set the SOCKS5 proxy address to be used by the Pulsar Admin client for outgoing HTTP(S)
+     * requests. When set, all admin traffic is tunneled through the given SOCKS5 proxy.
+     *
+     * @param socks5ProxyAddress the SOCKS5 proxy address (host + port), or {@code null} to disable
+     * @return the admin builder instance
+     */
+    PulsarAdminBuilder socks5ProxyAddress(InetSocketAddress socks5ProxyAddress);
+
+    /**
+     * Set the username used to authenticate against the SOCKS5 proxy configured via
+     * {@link #socks5ProxyAddress(InetSocketAddress)}. If the username is {@code null} or blank,
+     * no authentication will be performed against the proxy.
+     *
+     * @param socks5ProxyUsername the SOCKS5 proxy username
+     * @return the admin builder instance
+     */
+    PulsarAdminBuilder socks5ProxyUsername(String socks5ProxyUsername);
+
+    /**
+     * Set the password used to authenticate against the SOCKS5 proxy configured via
+     * {@link #socks5ProxyAddress(InetSocketAddress)}. Only used when a non-blank username has
+     * been configured.
+     *
+     * @param socks5ProxyPassword the SOCKS5 proxy password
+     * @return the admin builder instance
+     */
+    PulsarAdminBuilder socks5ProxyPassword(String socks5ProxyPassword);
+
+    /**
+     * Set the scope that controls which connections are routed through the SOCKS5 proxy.
+     *
+     * <p>For {@code PulsarAdmin}, the default is {@link Socks5ProxyScope#HTTP_ONLY} because all
+     * admin traffic is HTTP/HTTPS. Setting the scope to {@link Socks5ProxyScope#BINARY_ONLY}
+     * effectively disables the proxy for admin clients.
+     *
+     * @param socks5ProxyScope the scope selector; must not be {@code null}
+     * @return the admin builder instance
+     * @see Socks5ProxyScope
+     */
+    PulsarAdminBuilder socks5ProxyScope(Socks5ProxyScope socks5ProxyScope);
 
     /**
      * Provide a set of shared client resources to be reused by this client.
