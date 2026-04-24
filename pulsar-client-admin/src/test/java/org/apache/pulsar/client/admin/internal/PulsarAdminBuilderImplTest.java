@@ -45,7 +45,9 @@ import org.apache.pulsar.client.api.PulsarClientSharedResources;
 import org.apache.pulsar.client.impl.auth.AuthenticationDisabled;
 import org.apache.pulsar.client.impl.conf.ClientConfigurationData;
 import org.asynchttpclient.proxy.ProxyServer;
+import org.asynchttpclient.proxy.ProxyServerSelector;
 import org.asynchttpclient.proxy.ProxyType;
+import org.asynchttpclient.uri.Uri;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -309,7 +311,7 @@ public class PulsarAdminBuilderImplTest {
                 .socks5ProxyAddress(proxyAddress)
                 .build();
 
-        ProxyServer proxyServer = admin.getAsyncHttpConnector().getHttpClient().getConfig().getProxyServer();
+        ProxyServer proxyServer = resolveProxyServer(admin);
         assertThat(proxyServer).isNotNull();
         assertThat(proxyServer.getProxyType()).isEqualTo(ProxyType.SOCKS_V5);
         assertThat(proxyServer.getHost()).isEqualTo("127.0.0.1");
@@ -333,7 +335,7 @@ public class PulsarAdminBuilderImplTest {
                 .socks5ProxyPassword("s3cr3t")
                 .build();
 
-        ProxyServer proxyServer = admin.getAsyncHttpConnector().getHttpClient().getConfig().getProxyServer();
+        ProxyServer proxyServer = resolveProxyServer(admin);
         assertThat(proxyServer).isNotNull();
         assertThat(proxyServer.getProxyType()).isEqualTo(ProxyType.SOCKS_V5);
         assertThat(proxyServer.getHost()).isEqualTo("proxy.example.com");
@@ -354,8 +356,23 @@ public class PulsarAdminBuilderImplTest {
                 .serviceHttpUrl("http://localhost:8080")
                 .build();
 
-        ProxyServer proxyServer = admin.getAsyncHttpConnector().getHttpClient().getConfig().getProxyServer();
+        ProxyServer proxyServer = resolveProxyServer(admin);
         assertThat(proxyServer).isNull();
+    }
+
+    /**
+     * Resolves the {@link ProxyServer} configured on the underlying async-http-client. The
+     * async-http-client API exposes proxy configuration only through a
+     * {@link ProxyServerSelector}, so we invoke the selector with an arbitrary target URI to
+     * retrieve the effective {@link ProxyServer} (or {@code null} when no proxy is configured).
+     */
+    private static ProxyServer resolveProxyServer(PulsarAdminImpl admin) {
+        ProxyServerSelector selector =
+                admin.getAsyncHttpConnector().getHttpClient().getConfig().getProxyServerSelector();
+        if (selector == null) {
+            return null;
+        }
+        return selector.select(Uri.create("http://localhost:8080"));
     }
 
     private String secretAuthParams(String secret) {

@@ -28,6 +28,7 @@ import static org.testng.Assert.assertNull;
 
 import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
+import org.apache.pulsar.client.api.Socks5ProxyScope;
 import org.apache.pulsar.client.impl.auth.AuthenticationDisabled;
 import org.apache.pulsar.client.impl.conf.ClientConfigurationData;
 import org.asynchttpclient.DefaultAsyncHttpClientConfig;
@@ -63,7 +64,7 @@ public class AsyncHttpConnectorSocks5Test {
     @Test
     public void testConfigureSocks5ProxyIfNeededWithoutAddress() throws Exception {
         DefaultAsyncHttpClientConfig.Builder builder = spy(new DefaultAsyncHttpClientConfig.Builder());
-        ClientConfigurationData conf = new ClientConfigurationData();
+        ClientConfigurationData conf = newAdminConf();
 
         invokeConfigureSocks5(builder, conf);
 
@@ -78,7 +79,7 @@ public class AsyncHttpConnectorSocks5Test {
     @Test
     public void testConfigureSocks5ProxyIfNeededWithAddressOnly() throws Exception {
         DefaultAsyncHttpClientConfig.Builder builder = spy(new DefaultAsyncHttpClientConfig.Builder());
-        ClientConfigurationData conf = new ClientConfigurationData();
+        ClientConfigurationData conf = newAdminConf();
         InetSocketAddress socks5Address = InetSocketAddress.createUnresolved("127.0.0.1", 1080);
         conf.setSocks5ProxyAddress(socks5Address);
 
@@ -103,7 +104,7 @@ public class AsyncHttpConnectorSocks5Test {
     @Test
     public void testConfigureSocks5ProxyIfNeededWithCredentials() throws Exception {
         DefaultAsyncHttpClientConfig.Builder builder = spy(new DefaultAsyncHttpClientConfig.Builder());
-        ClientConfigurationData conf = new ClientConfigurationData();
+        ClientConfigurationData conf = newAdminConf();
         InetSocketAddress socks5Address = InetSocketAddress.createUnresolved("proxy.example.com", 2080);
         conf.setSocks5ProxyAddress(socks5Address);
         conf.setSocks5ProxyUsername("user1");
@@ -128,12 +129,31 @@ public class AsyncHttpConnectorSocks5Test {
     }
 
     /**
+     * When the configured {@link Socks5ProxyScope} does not cover HTTP traffic (e.g.
+     * {@link Socks5ProxyScope#BINARY_ONLY}), the helper must skip wiring the proxy on the
+     * async-http-client builder even if a SOCKS5 address is provided.
+     */
+    @Test
+    public void testConfigureSocks5ProxyIfNeededSkippedWhenScopeBinaryOnly() throws Exception {
+        DefaultAsyncHttpClientConfig.Builder builder = spy(new DefaultAsyncHttpClientConfig.Builder());
+        ClientConfigurationData conf = new ClientConfigurationData();
+        conf.setSocks5ProxyAddress(InetSocketAddress.createUnresolved("127.0.0.1", 1080));
+        // explicitly force BINARY_ONLY to verify the HTTP-scope guard
+        conf.setSocks5ProxyScope(Socks5ProxyScope.BINARY_ONLY);
+
+        invokeConfigureSocks5(builder, conf);
+
+        verify(builder, never()).setProxyServer(any(ProxyServer.class));
+        verify(builder, never()).setProxyServer(any(ProxyServer.Builder.class));
+    }
+
+    /**
      * A blank username must be treated the same as no credentials: no realm should be attached.
      */
     @Test
     public void testConfigureSocks5ProxyIfNeededWithBlankUsername() throws Exception {
         DefaultAsyncHttpClientConfig.Builder builder = spy(new DefaultAsyncHttpClientConfig.Builder());
-        ClientConfigurationData conf = new ClientConfigurationData();
+        ClientConfigurationData conf = newAdminConf();
         conf.setSocks5ProxyAddress(InetSocketAddress.createUnresolved("127.0.0.1", 1080));
         conf.setSocks5ProxyUsername("   ");
         conf.setSocks5ProxyPassword("ignored");
@@ -156,7 +176,7 @@ public class AsyncHttpConnectorSocks5Test {
      */
     @Test
     public void testAsyncHttpConnectorConstructionWithSocks5() throws Exception {
-        ClientConfigurationData conf = new ClientConfigurationData();
+        ClientConfigurationData conf = newAdminConf();
         conf.setServiceUrl("http://localhost:8080");
         conf.setAuthentication(new AuthenticationDisabled());
         conf.setSocks5ProxyAddress(InetSocketAddress.createUnresolved("127.0.0.1", 1080));
@@ -182,5 +202,16 @@ public class AsyncHttpConnectorSocks5Test {
                 ClientConfigurationData.class);
         method.setAccessible(true);
         method.invoke(null, builder, conf);
+    }
+
+    /**
+     * Build a {@link ClientConfigurationData} that matches what {@code PulsarAdminBuilderImpl}
+     * produces for admin clients. Admin traffic is HTTP-only, so the default SOCKS5 scope is
+     * {@link Socks5ProxyScope#HTTP_ONLY}.
+     */
+    private static ClientConfigurationData newAdminConf() {
+        ClientConfigurationData conf = new ClientConfigurationData();
+        conf.setSocks5ProxyScope(Socks5ProxyScope.HTTP_ONLY);
+        return conf;
     }
 }
