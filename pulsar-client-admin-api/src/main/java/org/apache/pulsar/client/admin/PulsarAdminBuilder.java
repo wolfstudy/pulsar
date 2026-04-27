@@ -26,7 +26,6 @@ import org.apache.pulsar.client.api.Authentication;
 import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.client.api.PulsarClientException.UnsupportedAuthenticationException;
 import org.apache.pulsar.client.api.PulsarClientSharedResources;
-import org.apache.pulsar.client.api.Socks5ProxyScope;
 
 /**
  * Builder class for a {@link PulsarAdmin} instance.
@@ -425,19 +424,6 @@ public interface PulsarAdminBuilder {
      * @return the admin builder instance
      */
     PulsarAdminBuilder socks5ProxyPassword(String socks5ProxyPassword);
-
-    /**
-     * Set the scope that controls which connections are routed through the SOCKS5 proxy.
-     *
-     * <p>For {@code PulsarAdmin}, the default is {@link Socks5ProxyScope#HTTP_ONLY} because all
-     * admin traffic is HTTP/HTTPS. Setting the scope to {@link Socks5ProxyScope#BINARY_ONLY}
-     * effectively disables the proxy for admin clients.
-     *
-     * @param socks5ProxyScope the scope selector; must not be {@code null}
-     * @return the admin builder instance
-     * @see Socks5ProxyScope
-     */
-    PulsarAdminBuilder socks5ProxyScope(Socks5ProxyScope socks5ProxyScope);
 
     /**
      * Provide a set of shared client resources to be reused by this client.

@@ -321,12 +321,6 @@ public class PulsarAdminBuilderImpl implements PulsarAdminBuilder {
     }
 
     @Override
-    public PulsarAdminBuilder socks5ProxyScope(Socks5ProxyScope socks5ProxyScope) {
-        this.conf.setSocks5ProxyScope(socks5ProxyScope);
-        return this;
-    }
-
-    @Override
     public PulsarAdminBuilder sharedResources(PulsarClientSharedResources sharedResources) {
         this.sharedResources = (PulsarClientSharedResourcesImpl) sharedResources;
         return this;

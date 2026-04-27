@@ -27,6 +27,7 @@ import static org.asynchttpclient.util.HttpConstants.ResponseStatusCodes.PERMANE
 import static org.asynchttpclient.util.HttpConstants.ResponseStatusCodes.SEE_OTHER_303;
 import static org.asynchttpclient.util.HttpConstants.ResponseStatusCodes.TEMPORARY_REDIRECT_307;
 import static org.asynchttpclient.util.MiscUtils.isNonEmpty;
+import com.google.common.annotations.VisibleForTesting;
 import com.spotify.futures.ConcurrencyReducer;
 import io.netty.channel.EventLoopGroup;
 import io.netty.handler.codec.http.DefaultHttpHeaders;
@@ -587,8 +588,9 @@ public class AsyncHttpConnector implements Connector, AsyncHttpRequestExecutor {
      * Netty's {@code Socks5ProxyHandler}, which is injected into the channel pipeline when
      * establishing a new connection.
      */
-    private static void configureSocks5ProxyIfNeeded(DefaultAsyncHttpClientConfig.Builder confBuilder,
-                                                     ClientConfigurationData conf) {
+    @VisibleForTesting
+    static void configureSocks5ProxyIfNeeded(DefaultAsyncHttpClientConfig.Builder confBuilder,
+                                             ClientConfigurationData conf) {
         if (conf == null) {
             return;
         }

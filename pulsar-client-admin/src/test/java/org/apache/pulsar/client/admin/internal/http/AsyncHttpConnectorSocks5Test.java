@@ -25,7 +25,6 @@ import static org.mockito.Mockito.verify;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
-import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
 import org.apache.pulsar.client.api.Socks5ProxyScope;
 import org.apache.pulsar.client.impl.auth.AuthenticationDisabled;
@@ -42,8 +41,6 @@ import org.testng.annotations.Test;
  */
 public class AsyncHttpConnectorSocks5Test {
 
-    private static final String SOCKS5_METHOD_NAME = "configureSocks5ProxyIfNeeded";
-
     /**
      * When the configuration is {@code null}, the proxy-configuration helper must be a no-op.
      */
@@ -51,7 +48,7 @@ public class AsyncHttpConnectorSocks5Test {
     public void testConfigureSocks5ProxyIfNeededWithNullConf() throws Exception {
         DefaultAsyncHttpClientConfig.Builder builder = spy(new DefaultAsyncHttpClientConfig.Builder());
 
-        invokeConfigureSocks5(builder, null);
+        AsyncHttpConnector.configureSocks5ProxyIfNeeded(builder, null);
 
         verify(builder, never()).setProxyServer(any(ProxyServer.class));
         verify(builder, never()).setProxyServer(any(ProxyServer.Builder.class));
@@ -65,7 +62,7 @@ public class AsyncHttpConnectorSocks5Test {
         DefaultAsyncHttpClientConfig.Builder builder = spy(new DefaultAsyncHttpClientConfig.Builder());
         ClientConfigurationData conf = newAdminConf();
 
-        invokeConfigureSocks5(builder, conf);
+        AsyncHttpConnector.configureSocks5ProxyIfNeeded(builder, conf);
 
         verify(builder, never()).setProxyServer(any(ProxyServer.class));
         verify(builder, never()).setProxyServer(any(ProxyServer.Builder.class));
@@ -82,7 +79,7 @@ public class AsyncHttpConnectorSocks5Test {
         InetSocketAddress socks5Address = InetSocketAddress.createUnresolved("127.0.0.1", 1080);
         conf.setSocks5ProxyAddress(socks5Address);
 
-        invokeConfigureSocks5(builder, conf);
+        AsyncHttpConnector.configureSocks5ProxyIfNeeded(builder, conf);
 
         ArgumentCaptor<ProxyServer> captor = ArgumentCaptor.forClass(ProxyServer.class);
         verify(builder).setProxyServer(captor.capture());
@@ -109,7 +106,7 @@ public class AsyncHttpConnectorSocks5Test {
         conf.setSocks5ProxyUsername("user1");
         conf.setSocks5ProxyPassword("p@ssw0rd");
 
-        invokeConfigureSocks5(builder, conf);
+        AsyncHttpConnector.configureSocks5ProxyIfNeeded(builder, conf);
 
         ArgumentCaptor<ProxyServer> captor = ArgumentCaptor.forClass(ProxyServer.class);
         verify(builder).setProxyServer(captor.capture());
@@ -140,7 +137,7 @@ public class AsyncHttpConnectorSocks5Test {
         // explicitly force BINARY_ONLY to verify the HTTP-scope guard
         conf.setSocks5ProxyScope(Socks5ProxyScope.BINARY_ONLY);
 
-        invokeConfigureSocks5(builder, conf);
+        AsyncHttpConnector.configureSocks5ProxyIfNeeded(builder, conf);
 
         verify(builder, never()).setProxyServer(any(ProxyServer.class));
         verify(builder, never()).setProxyServer(any(ProxyServer.Builder.class));
@@ -157,7 +154,7 @@ public class AsyncHttpConnectorSocks5Test {
         conf.setSocks5ProxyUsername("   ");
         conf.setSocks5ProxyPassword("ignored");
 
-        invokeConfigureSocks5(builder, conf);
+        AsyncHttpConnector.configureSocks5ProxyIfNeeded(builder, conf);
 
         ArgumentCaptor<ProxyServer> captor = ArgumentCaptor.forClass(ProxyServer.class);
         verify(builder).setProxyServer(captor.capture());
@@ -188,19 +185,6 @@ public class AsyncHttpConnectorSocks5Test {
         } finally {
             connector.close();
         }
-    }
-
-    /**
-     * Reflectively invoke the package-private static helper under test without exposing it.
-     */
-    private static void invokeConfigureSocks5(DefaultAsyncHttpClientConfig.Builder builder,
-                                              ClientConfigurationData conf) throws Exception {
-        Method method = AsyncHttpConnector.class.getDeclaredMethod(
-                SOCKS5_METHOD_NAME,
-                DefaultAsyncHttpClientConfig.Builder.class,
-                ClientConfigurationData.class);
-        method.setAccessible(true);
-        method.invoke(null, builder, conf);
     }
 
     /**
