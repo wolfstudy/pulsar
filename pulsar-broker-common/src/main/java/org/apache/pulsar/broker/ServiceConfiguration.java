@@ -357,6 +357,31 @@ public class ServiceConfiguration implements PulsarConfiguration {
             + "(0 to disable limiting)")
     private int maxHttpServerConnections = 2048;
 
+    @FieldContext(
+            category = CATEGORY_SERVER,
+            doc = "TCP keepalive time in seconds. This is the duration between the last data packet sent "
+                    + "(simple ACKs are not considered data) and the first keepalive probe. "
+                    + "Default is 7200 seconds (2 hours). "
+                    + "If set to 0, the system default value will be used."
+    )
+    private int tcpKeepAliveTimeSeconds = 0;
+
+    @FieldContext(
+            category = CATEGORY_SERVER,
+            doc = "TCP keepalive interval in seconds. This is the duration between subsequent keepalive probes, "
+                    + "if no acknowledgement is received from the peer. Default is 75 seconds. "
+                    + "If set to 0, the system default value will be used."
+    )
+    private int tcpKeepAliveIntervalSeconds = 0;
+
+    @FieldContext(
+            category = CATEGORY_SERVER,
+            doc = "TCP keepalive probe count. This is the number of unacknowledged probes to send before considering "
+                    + "the connection dead and notifying the application layer. Default is 9 probes. "
+                    + "If set to 0, the system default value will be used."
+    )
+    private int tcpKeepAliveProbeCount = 0;
+
     @FieldContext(category = CATEGORY_SERVER, doc =
             "Gzip compression is enabled by default. Specific paths can be excluded from compression.\n"
                     + "There are 2 syntaxes supported, Servlet url-pattern based, and Regex based.\n"
