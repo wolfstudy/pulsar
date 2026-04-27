@@ -341,26 +341,4 @@ public class BookKeeperClientFactoryImplTest {
                 (ClientConfiguration) FieldUtils.readField(builder, "conf", true);
         assertFalse(clientConfiguration.getLimitStatsLogging());
     }
-
-    @Test
-    public void testSetTcpKeepAliveConfiguration() {
-        BookKeeperClientFactoryImpl factory = new BookKeeperClientFactoryImpl();
-        ServiceConfiguration conf = new ServiceConfiguration();
-
-        // test default value
-        ClientConfiguration bkConf = factory.createBkClientConfiguration(mock(MetadataStoreExtended.class), conf);
-        assertEquals(bkConf.getTcpKeepIdle(), -1);
-        assertEquals(bkConf.getTcpKeepIntvl(), -1);
-        assertEquals(bkConf.getTcpKeepCnt(), -1);
-
-        // test setting TCP keep-alive parameters
-        conf.setTcpKeepAliveTimeSeconds(60);
-        conf.setTcpKeepAliveIntervalSeconds(10);
-        conf.setTcpKeepAliveProbeCount(5);
-
-        bkConf = factory.createBkClientConfiguration(mock(MetadataStoreExtended.class), conf);
-        assertEquals(bkConf.getTcpKeepIdle(), 60);
-        assertEquals(bkConf.getTcpKeepIntvl(), 10);
-        assertEquals(bkConf.getTcpKeepCnt(), 5);
-    }
 }

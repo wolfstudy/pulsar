@@ -138,15 +138,6 @@ public class BookKeeperClientFactoryImpl implements BookKeeperClientFactory {
         bkConf.setDiskWeightBasedPlacementEnabled(conf.isBookkeeperDiskWeightBasedPlacementEnabled());
         bkConf.setMetadataServiceUri(conf.getBookkeeperMetadataStoreUrl());
         bkConf.setLimitStatsLogging(conf.isBookkeeperClientLimitStatsLogging());
-        if (conf.getTcpKeepAliveTimeSeconds() > 0) {
-            bkConf.setTcpKeepIdle(conf.getTcpKeepAliveTimeSeconds());
-        }
-        if (conf.getTcpKeepAliveIntervalSeconds() > 0) {
-            bkConf.setTcpKeepIntvl(conf.getTcpKeepAliveIntervalSeconds());
-        }
-        if (conf.getTcpKeepAliveProbeCount() > 0) {
-            bkConf.setTcpKeepCnt(conf.getTcpKeepAliveProbeCount());
-        }
 
         if (!conf.isBookkeeperMetadataStoreSeparated()) {
             // If we're connecting to the same metadata service, with same config, then
